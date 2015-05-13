@@ -197,6 +197,8 @@ HERE
       @scan                       = false
       @title                      = nil
       @output                     = nil
+      @output_tmp_location        = nil
+      @output_final_location      = nil
       @format                     = :mkv
       @log                        = true
       @dry_run                    = false
@@ -672,9 +674,11 @@ HERE
       seconds = Time.now.tv_sec
       media = Media.new(path: arg, title: @title, autocrop: @crop == :detect)
       Console.debug media.info
+      @output_final_location = resolve_output(media)
+      @output_tmp_location = "#{@output_final_location}.transcode"
       handbrake_options = {
         'input' => arg,
-        'output' => resolve_output(media),
+        'output' => @output_tmp_location,
         'markers' => nil,
         'encoder' => 'x264',
         'quality' => '16'
@@ -690,6 +694,7 @@ HERE
       prepare_options(handbrake_options, encoder_options)
       transcode(handbrake_options)
       adjust_metadata(handbrake_options['output'], renamed_audio)
+      move_to_final_location
 
       unless @dry_run
         seconds = Time.now.tv_sec - seconds
@@ -699,6 +704,13 @@ HERE
         printf "Elapsed time: %02d:%02d:%02d\n\n", hours, minutes, seconds
       end
     end
+
+
+    def move_to_final_location
+      return if @dry_run
+      File.rename @output_tmp_location, @output_final_location
+    end
+
 
     def resolve_output(media)
       output = File.basename(media.path, '.*') + '.' + @format.to_s
